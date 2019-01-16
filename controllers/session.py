@@ -26,10 +26,11 @@ class SessionController(Resource):
             return 'Failed to get session state. Is the session outdated?', 500
 
         # TODO: validate delta
+
         delta_json: Union[str, dict] = request.get_json(force=True)
         delta = TicTacToeDelta.from_json(delta_json) if type(delta_json) == str else TicTacToeDelta.from_dict(delta_json)
-        next_state: TicTacToeModel.TicTacToeDTO = TicTacToeDelta.apply_delta(to=maybe_previous_state, delta=delta)
 
+        next_state: TicTacToeModel.TicTacToeDTO = TicTacToeDelta.apply_delta(to=maybe_previous_state, delta=delta)
         updated_status, _ = self.repository.update(session_id, next_state)
         if not updated_status:
             return 'Failed to update session state', 500
