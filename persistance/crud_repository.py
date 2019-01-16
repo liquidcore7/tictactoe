@@ -1,10 +1,7 @@
 import redis
 from uuid import uuid1
 from typing import *
-import json
-
-import os
-import urllib.parse
+import json, os
 
 T = TypeVar('T')
 
@@ -20,13 +17,8 @@ class CrudRepository(Generic[T]):
 
     @staticmethod
     def __env_init__() -> redis.Redis:
-        urllib.parse.uses_netloc.append('redis')
-        try:  # Heroku init from redis url
-            redis_url = os.environ['REDIS_URL']
-            url = urllib.parse.urlparse(redis_url)
-        except:  # no env variable or it`s malformed
-            url = urllib.parse.urlparse('redis://localhost:6379')  # REDIS defaults
-        return redis.Redis(host=url.hostname, port=url.port, password=url.password)
+        redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+        return redis.from_url(redis_url)
 
     def get(self, uuid: str) -> Optional[T]:
         maybe_result = self.db_connection.get(uuid)
