@@ -155,7 +155,6 @@ class TicTacToeDecisionTreeTest(unittest.TestCase):
             field = TicTacToeDelta.apply_delta(field, best_move.value)
             best_move = TicTacToeDecisionTree.next(best_move)
 
-
         self.assertEqual(
             field.winner,
             TicTacToeHelper.Players.FREE,
