@@ -148,16 +148,12 @@ class TicTacToeDecisionTreeTest(unittest.TestCase):
 
     def test_train(self):
         trained = TicTacToeDecisionTree()
-        player = TicTacToeHelper.Players.X
         field = TicTacToeModel.empty()
-        best = lambda player: lambda score: score.max if player == TicTacToeHelper.Players.X else -score.max
-        best_move = trained.get_root().next(best(player))
+
+        best_move = trained.get_root().find(TicTacToeDelta.of(TicTacToeHelper.Players.X.value, 8))
         while best_move is not None:
             field = TicTacToeDelta.apply_delta(field, best_move.value)
-            print(field)
-            print(best_move.score.max, best_move.score.min)
-            player = TicTacToeDecisionTree.negate_player(player)
-            best_move = best_move.next(best(player))
+            best_move = TicTacToeDecisionTree.next(best_move)
 
 
         self.assertEqual(

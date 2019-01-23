@@ -41,12 +41,8 @@ class Tree(Generic[T, SC]):
 class TicTacToeDecisionTreeScore:
     SCORE = 10
 
-    def __init__(self, min_score: int, max_score: int):
-        self.max = max_score
-        self.min = min_score
-
-    def negate(self) -> TicTacToeDecisionTreeScore:
-        return TicTacToeDecisionTreeScore(min_score=self.max, max_score=self.min)
+    def __init__(self, score: int):
+        self.value = score
 
     @staticmethod
     def from_winner(winner: TicTacToeHelper.Players, tree_depth: int) -> TicTacToeDecisionTreeScore:
@@ -56,16 +52,17 @@ class TicTacToeDecisionTreeScore:
         score = TicTacToeDecisionTreeScore.SCORE - (tree_depth - 5) if winner == TicTacToeHelper.Players.X else \
             -TicTacToeDecisionTreeScore.SCORE + (tree_depth - 6)
 
-        return TicTacToeDecisionTreeScore(score, score)
+        return TicTacToeDecisionTreeScore(score)
 
     @staticmethod
     def empty():
-        return TicTacToeDecisionTreeScore(0, 0)
+        return TicTacToeDecisionTreeScore(0)
 
 
 class TicTacToeDecisionTree(Tree[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore]):
 
     all_moves = [(1 << power) for power in range(9)]
+    best_picker = lambda player: lambda score: -score.value if player == TicTacToeHelper.Players.X else score.value
 
     @staticmethod
     def get_moves(field_state: TicTacToeModel.TicTacToeDTO, player: TicTacToeHelper.Players) \
@@ -110,11 +107,10 @@ class TicTacToeDecisionTree(Tree[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDeci
             for move_leaf in transformation.children:
                 recursive_set_weights(move_leaf, current_model, next_player)
 
-            maybe_max = max(map(lambda leaf: leaf.score.max, transformation.children))
-            maybe_min = min(map(lambda leaf: leaf.score.min, transformation.children))
-            new_max = maybe_max if abs(maybe_max) >= abs(maybe_min) else maybe_min
-            new_min = maybe_min if abs(maybe_min) >= abs(maybe_max) else maybe_max
-            transformation.score = TicTacToeDecisionTreeScore(min_score=new_min, max_score=new_max)
+            maybe_max = max(map(lambda leaf: leaf.score.value, transformation.children))
+            maybe_min = min(map(lambda leaf: leaf.score.value, transformation.children))
+            new_value = maybe_max if abs(maybe_max) >= abs(maybe_min) else maybe_min
+            transformation.score = TicTacToeDecisionTreeScore(new_value)
             return
 
         recursive_set_weights(self.root, TicTacToeModel.empty(), TicTacToeHelper.Players.FREE)
@@ -123,3 +119,9 @@ class TicTacToeDecisionTree(Tree[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDeci
         super().__init__(TicTacToeDelta.of(TicTacToeHelper.Players.FREE.value, updated_field=0),
                          TicTacToeDecisionTreeScore.empty())
         self.train()
+
+    @staticmethod
+    def next(leaf: Leaf[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore]) \
+        -> Leaf[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore]:
+
+        return leaf.next(TicTacToeDecisionTree.best_picker(leaf.value.player))
