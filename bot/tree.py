@@ -62,7 +62,10 @@ class TicTacToeDecisionTreeScore:
 class TicTacToeDecisionTree(Tree[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore]):
 
     all_moves = [(1 << power) for power in range(9)]
-    best_picker = lambda player: lambda score: -score.value if player == TicTacToeHelper.Players.X else score.value
+
+    @staticmethod
+    def best_picker(player: TicTacToeHelper.Players) -> Callable[[TicTacToeDecisionTreeScore], int]:
+        return lambda score: score.value if player == TicTacToeHelper.Players.X else -score.value
 
     @staticmethod
     def get_moves(field_state: TicTacToeModel.TicTacToeDTO, player: TicTacToeHelper.Players) \
@@ -89,6 +92,7 @@ class TicTacToeDecisionTree(Tree[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDeci
 
     def train(self):
 
+        # Negamax algorithm: https://en.wikipedia.org/wiki/Negamax
         def recursive_set_weights(transformation: Leaf[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore],
                                   parent_model: TicTacToeModel.TicTacToeDTO,
                                   current_player: TicTacToeHelper.Players):
@@ -107,21 +111,18 @@ class TicTacToeDecisionTree(Tree[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDeci
             for move_leaf in transformation.children:
                 recursive_set_weights(move_leaf, current_model, next_player)
 
-            maybe_max = max(map(lambda leaf: leaf.score.value, transformation.children))
-            maybe_min = min(map(lambda leaf: leaf.score.value, transformation.children))
-            new_value = maybe_max if abs(maybe_max) >= abs(maybe_min) else maybe_min
-            transformation.score = TicTacToeDecisionTreeScore(new_value)
+            next_score = max(map(lambda leaf: -leaf.score.value, transformation.children))
+            transformation.score = TicTacToeDecisionTreeScore(next_score)
             return
 
         recursive_set_weights(self.root, TicTacToeModel.empty(), TicTacToeHelper.Players.FREE)
 
     def __init__(self):
-        super().__init__(TicTacToeDelta.of(TicTacToeHelper.Players.FREE.value, updated_field=0),
-                         TicTacToeDecisionTreeScore.empty())
+        super().__init__(TicTacToeDelta.empty(), TicTacToeDecisionTreeScore.empty())
         self.train()
 
     @staticmethod
     def next(leaf: Leaf[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore]) \
-        -> Leaf[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore]:
+        -> Optional[Leaf[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDecisionTreeScore]]:
 
         return leaf.next(TicTacToeDecisionTree.best_picker(leaf.value.player))

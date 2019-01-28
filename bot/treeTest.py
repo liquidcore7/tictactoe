@@ -78,7 +78,7 @@ class LeafTest(unittest.TestCase):
 
 class TreeTest(unittest.TestCase):
     def test_init(self):
-        tree: Tree[int] = Tree(1)
+        tree: Tree[int] = Tree(1, 0)
         self.assertEqual(
             tree.root.value,
             1,
@@ -86,7 +86,7 @@ class TreeTest(unittest.TestCase):
         )
 
     def test_copy_root(self):
-        tree: Tree[int] = Tree(1)
+        tree: Tree[int] = Tree(1, 0)
         root = tree.root
         copy_root = tree.get_root()
         self.assertFalse(
@@ -150,9 +150,10 @@ class TicTacToeDecisionTreeTest(unittest.TestCase):
         trained = TicTacToeDecisionTree()
         field = TicTacToeModel.empty()
 
-        best_move = trained.get_root().find(TicTacToeDelta.of(TicTacToeHelper.Players.X.value, 8))
+        best_move = trained.get_root()
         while best_move is not None:
             field = TicTacToeDelta.apply_delta(field, best_move.value)
+            print(field)
             best_move = TicTacToeDecisionTree.next(best_move)
 
         self.assertEqual(
