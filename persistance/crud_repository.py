@@ -1,15 +1,15 @@
 import redis
 from uuid import uuid1
 from typing import *
-import json, os
+import os
 
 T = TypeVar('T')
 
 
 class CrudRepository(Generic[T]):
     def __init__(self,
-                 serialize: Callable[[T], str] = lambda t: json.dumps(t),
-                 deserialize: Callable[[str], T] = lambda s: json.loads(s, cls=T),
+                 serialize: Callable[[T], str],
+                 deserialize: Callable[[str], T],
                  timeout=60 * 60 * 2):
         self.db_connection = CrudRepository.__env_init__()
         self.serde = (serialize, deserialize)
@@ -29,7 +29,8 @@ class CrudRepository(Generic[T]):
     def create(self, empty_instance: T, with_name: str=None) -> Tuple[bool, str]:
         inserted_id = str(uuid1()) if with_name is None else with_name
         status = self.db_connection.set(inserted_id, self.serde[0](empty_instance))
-        status &= self.db_connection.expire(inserted_id, self.timeout)
+        if not with_name:
+            status &= self.db_connection.expire(inserted_id, self.timeout)
         return status, inserted_id
 
     def update(self, uuid: str, new_instance: T, last_update: bool=False) -> Tuple[bool, T]:
