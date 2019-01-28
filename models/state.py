@@ -63,6 +63,10 @@ class TicTacToeDelta:
                                                 updated_field=updated_field)
 
     @staticmethod
+    def empty() -> TicTacToeDeltaDTO:
+        return TicTacToeDelta.of(TicTacToeHelper.Players.FREE.value, 0)
+
+    @staticmethod
     def from_json(json: str) -> TicTacToeDeltaDTO:
         return TicTacToeDelta.TicTacToeDeltaDTO.parse_raw(json)
 
