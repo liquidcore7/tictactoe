@@ -26,10 +26,10 @@ class CrudRepository(Generic[T]):
             maybe_result = self.serde[1](maybe_result)
         return maybe_result
 
-    def create(self, empty_instance: T, with_name: str=None) -> Tuple[bool, str]:
+    def create(self, empty_instance: T, with_name: str=None, expires=True) -> Tuple[bool, str]:
         inserted_id = str(uuid1()) if with_name is None else with_name
         status = self.db_connection.set(inserted_id, self.serde[0](empty_instance))
-        if not with_name:
+        if expires:
             status &= self.db_connection.expire(inserted_id, self.timeout)
         return status, inserted_id
 
