@@ -2,33 +2,25 @@ from flask_restful import Resource
 from typing import *
 from models.state import TicTacToeModel, TicTacToeDelta
 from flask import request
-from persistance.inject import WithDataBase
+from services.session import SessionService
 
 
-class SessionController(Resource, WithDataBase[TicTacToeModel.TicTacToeDTO]):
+class SessionController(Resource):
 
     def __init__(self):
-        super().__init__(lambda dto: dto.json(), lambda string: TicTacToeModel.from_json(string))
+        self.service = SessionService()
 
     def get(self) -> super().Response:
-        success, session_id = self.db.create(TicTacToeModel.empty())
-        if not success:
+        maybe_session_id: Optional[str] = self.service.create_session()
+        if maybe_session_id is None:
             return 'Failed to create session', 500
-        return session_id, 200
+        return maybe_session_id, 200
 
     def post(self, session_id: str) -> super().Response:
-        maybe_previous_state: Optional[TicTacToeModel.TicTacToeDTO] = self.db.get(session_id)
-        if maybe_previous_state is None:
-            return 'Failed to get session state. Is the session outdated?', 500
-
-        # TODO: validate delta
-
         delta_json: Union[str, dict] = request.get_json(force=True)
         delta = TicTacToeDelta.from_json(delta_json) if type(delta_json) == str else TicTacToeDelta.from_dict(delta_json)
 
-        next_state: TicTacToeModel.TicTacToeDTO = TicTacToeDelta.apply_delta(to=maybe_previous_state, delta=delta)
-        updated_status, _ = self.db.update(session_id, next_state)
-        if not updated_status:
+        maybe_next_state: Optional[TicTacToeModel.TicTacToeDTO] = self.service.update_session(session_id, delta)
+        if maybe_next_state is None:
             return 'Failed to update session state', 500
-
-        return next_state.json(), 200
+        return maybe_next_state.json(), 200
