@@ -3,7 +3,10 @@ from typing import *
 from models.state import TicTacToeModel, TicTacToeDelta, TicTacToeHelper
 from persistance.inject import WithDataBase
 
+from singleton_decorator import singleton
 
+
+@singleton
 class SessionService(WithDataBase[TicTacToeModel.TicTacToeDTO]):
     def __init__(self):
         super().__init__(lambda dto: dto.json(), lambda string: TicTacToeModel.from_json(string))

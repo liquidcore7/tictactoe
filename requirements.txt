@@ -3,3 +3,4 @@ flask-restful==0.3.7
 pydantic==0.18
 gunicorn==19.9.0
 redis==3.0.1
+singleton-decorator==1.0.0

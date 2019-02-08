@@ -1,6 +1,7 @@
-import json
+import pickle
 from typing import *
 from functools import reduce
+from copy import copy
 
 from bot.repository import BotRepository
 from bot.tree import TicTacToeDecisionTree
@@ -8,24 +9,29 @@ from models.state import TicTacToeDelta, TicTacToeModel, TicTacToeHelper
 from persistance.inject import WithDataBase
 from services.session import SessionService
 
+from singleton_decorator import singleton
 
+
+@singleton
 class BotService(WithDataBase[List[TicTacToeDelta.TicTacToeDeltaDTO]]):
-    BOT_POSTFIX = '_moves'
 
     def __init__(self):
-        super().__init__(lambda dto_list: json.dumps(list(map(lambda dto: dto.json(), dto_list))),
-                         lambda string: list(map(TicTacToeDelta.from_json, json.loads(string))))
+        super().__init__(lambda dto_list: pickle.dumps(list(map(lambda dto: dto.json(), dto_list))),
+                         lambda string: list(map(TicTacToeDelta.from_json, pickle.loads(string))))
+        self.BOT_POSTFIX = '_moves'
         self.session_service = SessionService()
         self.bot_root_node = BotRepository().get_root()
 
     def __append__(self, session_id: str, value: TicTacToeDelta.TicTacToeDeltaDTO) -> bool:
-        return self.db.db_connection.rpushx(session_id + BotService.BOT_POSTFIX, self.db.serde[0](value))
+        current_moves = self.get_session(session_id)
+        current_moves.append(value)
+        return self.db.update(session_id + self.BOT_POSTFIX, current_moves)[0]
 
     def __next_move__(self, previous_moves: List[TicTacToeDelta.TicTacToeDeltaDTO]) \
             -> Optional[TicTacToeDelta.TicTacToeDeltaDTO]:
 
-        root = self.bot_root_node
-        last_move = reduce(lambda leaf, move: leaf.find(move), previous_moves, root)
+        root = copy(self.bot_root_node)
+        last_move = reduce(lambda leaf, move: copy(leaf.find(move)), previous_moves, root)
 
         maybe_next = TicTacToeDecisionTree.next(last_move)
         return maybe_next.value if maybe_next else None
@@ -35,32 +41,35 @@ class BotService(WithDataBase[List[TicTacToeDelta.TicTacToeDeltaDTO]]):
         if maybe_session_id is None:
             return None
 
-        status_success, _ = self.db.create(list(), with_name=maybe_session_id + BotService.BOT_POSTFIX)
+        status_success, _ = self.db.create(list(), with_name=maybe_session_id + self.BOT_POSTFIX)
         return maybe_session_id if status_success else None
 
-    def get_session(self, session_id: str) -> Optional[TicTacToeDelta.TicTacToeDeltaDTO]:
-        return self.session_service.get_session(session_id)
+    def get_session(self, session_id: str) -> List[TicTacToeDelta.TicTacToeDeltaDTO]:
+        return self.db.get(session_id + self.BOT_POSTFIX)
 
     def update_session(self, session_id: str, with_value: TicTacToeDelta.TicTacToeDeltaDTO) \
             -> Optional[TicTacToeModel.TicTacToeDTO]:
+        # do player's turn if it's player isn't Players.FREE
+        if with_value.player != TicTacToeHelper.Players.FREE:
+            maybe_player_field = self.session_service.update_session(session_id, with_value)
+            # update moves for bot
+            self.__append__(session_id, with_value)
 
-        player_inserted, player_field = self.session_service.update_session(session_id, with_value)
-
-        self.__append__(session_id, with_value)
-        all_moves: List[TicTacToeDelta.TicTacToeDeltaDTO] = self.db.get(session_id + BotService.BOT_POSTFIX)
+        # get potential next move if any
+        all_moves: List[TicTacToeDelta.TicTacToeDeltaDTO] = self.db.get(session_id + self.BOT_POSTFIX)
         maybe_next_move: Optional[TicTacToeDelta.TicTacToeDeltaDTO] = self.__next_move__(all_moves)
-        if maybe_next_move is None:
-            if player_field.winner != TicTacToeHelper.Players.FREE:
-                self.delete_session(session_id)
 
-            return player_field if player_inserted else None
+        if maybe_next_move is None:  # if end of game reached, return without bot's move
+            self.delete_session(session_id)
+            return maybe_player_field
 
         self.__append__(session_id, maybe_next_move)
-        bot_inserted, resulting_field = self.session_service.update_session(session_id, maybe_next_move)
-        if resulting_field.winner != TicTacToeHelper.Players.FREE:
-            self.delete_session(session_id)
+        maybe_resulting_field = self.session_service.update_session(session_id, maybe_next_move)
 
-        return resulting_field if bot_inserted else None
+        if maybe_resulting_field.winner != TicTacToeHelper.Players.FREE:
+            self.delete_session(session_id)
+        return maybe_resulting_field
 
     def delete_session(self, session_id: str) -> bool:
-        return self.db.delete(session_id + BotService.BOT_POSTFIX)
+        status = self.session_service.delete_session(session_id)
+        return status and self.db.delete(session_id + self.BOT_POSTFIX)
