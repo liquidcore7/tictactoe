@@ -111,7 +111,7 @@ class TicTacToeDecisionTree(Tree[TicTacToeDelta.TicTacToeDeltaDTO, TicTacToeDeci
             for move_leaf in transformation.children:
                 recursive_set_weights(move_leaf, current_model, next_player)
 
-            next_score = max(map(lambda leaf: -leaf.score.value, transformation.children))
+            next_score = min(map(lambda leaf: -leaf.score.value, transformation.children))
             transformation.score = TicTacToeDecisionTreeScore(next_score)
             return
 
