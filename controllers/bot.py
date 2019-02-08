@@ -1,21 +1,20 @@
+from flask import request
 from flask_restful import Resource
 from typing import *
-from models.state import TicTacToeModel, TicTacToeDelta
-from flask import request
 
+from models.state import TicTacToeDelta, TicTacToeModel
 from persistance.inject import WithDataBase
-from services.session import SessionService
+from services.bot import BotService
 
 
-class SessionController(Resource):
-
+class BotSessionController(Resource):
     def __init__(self):
-        self.service = SessionService()
+        self.service = BotService()
 
     def get(self) -> WithDataBase.Response:
         maybe_session_id: Optional[str] = self.service.create_session()
         if maybe_session_id is None:
-            return 'Failed to create session', 500
+            return 'Failed to create bot session', 500
         return maybe_session_id, 200
 
     def post(self, session_id: str) -> WithDataBase.Response:
@@ -24,5 +23,5 @@ class SessionController(Resource):
 
         maybe_next_state: Optional[TicTacToeModel.TicTacToeDTO] = self.service.update_session(session_id, delta)
         if maybe_next_state is None:
-            return 'Failed to update session state', 500
+            return 'Failed to make move', 500
         return maybe_next_state.json(), 200
