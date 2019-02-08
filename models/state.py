@@ -43,6 +43,11 @@ class TicTacToeModel:
         return TicTacToeModel.TicTacToeDTO.parse_raw(json)
 
     @staticmethod
+    def is_won(field: TicTacToeDTO) -> bool:
+        return TicTacToeHelper.won_by(field.xs, field.os) != TicTacToeHelper.Players.FREE \
+                or field.xs | field.os == 511  # all cells filled
+
+    @staticmethod
     def of(xs: int, os: int) -> TicTacToeDTO:
         return TicTacToeModel.TicTacToeDTO(xs=xs, os=os, winner=TicTacToeHelper.won_by(xs, os))
 
